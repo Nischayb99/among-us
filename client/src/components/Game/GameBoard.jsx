@@ -1,14 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useGame } from "../../hooks/useGame";
-import { TASK_LOCATIONS, GAME_CONFIG } from "../../utils/constants";
-import {
-  canInteractWithTask,
-  canKillPlayer,
-  getNearbyPlayers,
-} from "../../utils/helpers";
-import Player from "./Player";
-import TaskPanel from "./TaskPanel";
-import GameUI from "./GameUI";
+import React, { useState, useEffect, useCallback } from 'react';
+import { useGame } from '../../hooks/useGame';
+import { TASK_LOCATIONS, GAME_CONFIG } from '../../utils/constants';
+import { canInteractWithTask, getNearbyPlayers } from '../../utils/helpers';
+import Player from './Player';
+import TaskPanel from './TaskPanel';
+import GameUI from './GameUI';
 
 const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
   const { movePlayer, killPlayer, completeTask, reportBody } = useGame();
@@ -21,35 +17,35 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
   // Handle keyboard input
   useEffect(() => {
     const handleKeyDown = (e) => {
-      setKeys((prev) => ({ ...prev, [e.key.toLowerCase()]: true }));
+      setKeys(prev => ({ ...prev, [e.key.toLowerCase()]: true }));
     };
 
     const handleKeyUp = (e) => {
-      setKeys((prev) => ({ ...prev, [e.key.toLowerCase()]: false }));
+      setKeys(prev => ({ ...prev, [e.key.toLowerCase()]: false }));
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
 
   // Movement logic
   useEffect(() => {
-    if (currentPlayer?.state !== "alive") return;
+    if (currentPlayer?.state !== 'alive') return;
 
     const movePlayerPosition = () => {
       let newX = position.x;
       let newY = position.y;
       const speed = GAME_CONFIG.MOVE_SPEED;
 
-      if (keys["w"] || keys["arrowup"]) newY -= speed;
-      if (keys["s"] || keys["arrowdown"]) newY += speed;
-      if (keys["a"] || keys["arrowleft"]) newX -= speed;
-      if (keys["d"] || keys["arrowright"]) newX += speed;
+      if (keys['w'] || keys['arrowup']) newY -= speed;
+      if (keys['s'] || keys['arrowdown']) newY += speed;
+      if (keys['a'] || keys['arrowleft']) newX -= speed;
+      if (keys['d'] || keys['arrowright']) newX += speed;
 
       // Boundary checking
       newX = Math.max(20, Math.min(GAME_CONFIG.MAP_WIDTH - 20, newX));
@@ -69,10 +65,10 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
   // Check nearby players for interactions
   useEffect(() => {
     if (!currentPlayer) return;
-
+    
     const nearby = getNearbyPlayers(
-      { ...currentPlayer, position },
-      players,
+      { ...currentPlayer, position }, 
+      players, 
       GAME_CONFIG.KILL_RANGE
     );
     setNearbyPlayers(nearby);
@@ -81,35 +77,26 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
   // Update dead bodies from player states
   useEffect(() => {
     const bodies = players
-      .filter((p) => p.state === "dead")
-      .map((p) => ({
+      .filter(p => p.state === 'dead')
+      .map(p => ({
         playerId: p.id,
         position: p.position,
-        reportedBy: null,
+        reportedBy: null
       }));
     setDeadBodies(bodies);
   }, [players]);
 
-  const handleKill = useCallback(
-    (targetId) => {
-      killPlayer(targetId);
-    },
-    [killPlayer]
-  );
+  const handleKill = useCallback((targetId) => {
+    killPlayer(targetId);
+  }, [killPlayer]);
 
-  const handleCompleteTask = useCallback(
-    (taskId) => {
-      completeTask();
-    },
-    [completeTask]
-  );
+  const handleCompleteTask = useCallback((taskId) => {
+    completeTask();
+  }, [completeTask]);
 
-  const handleReportBody = useCallback(
-    (bodyInfo) => {
-      reportBody(bodyInfo);
-    },
-    [reportBody]
-  );
+  const handleReportBody = useCallback((bodyInfo) => {
+    reportBody(bodyInfo);
+  }, [reportBody]);
 
   const canInteractWithTaskAtPosition = (task) => {
     return canInteractWithTask(position, task, GAME_CONFIG.TASK_RANGE);
@@ -126,29 +113,32 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
   return (
     <div className="min-h-screen bg-gray-800 relative overflow-hidden">
       {/* Game UI */}
-      <GameUI currentPlayer={currentPlayer} onBackToMenu={onBackToMenu} />
+      <GameUI 
+        currentPlayer={currentPlayer}
+        onBackToMenu={onBackToMenu}
+      />
 
       {/* Game Board */}
-      <div
+      <div 
         className="relative w-full h-screen bg-gray-700"
-        style={{
-          width: GAME_CONFIG.MAP_WIDTH,
+        style={{ 
+          width: GAME_CONFIG.MAP_WIDTH, 
           height: GAME_CONFIG.MAP_HEIGHT,
-          margin: "0 auto",
+          margin: '0 auto'
         }}
       >
         {/* Task locations */}
-        {gameMap.map((task) => (
+        {gameMap.map(task => (
           <div
             key={task.id}
             className={`absolute w-8 h-8 rounded border-2 transition-all duration-200 ${
-              canInteractWithTaskAtPosition(task)
-                ? "bg-yellow-400 border-yellow-300 animate-pulse scale-110"
-                : "bg-gray-500 border-gray-400"
+              canInteractWithTaskAtPosition(task) 
+                ? 'bg-yellow-400 border-yellow-300 animate-pulse scale-110' 
+                : 'bg-gray-500 border-gray-400'
             }`}
-            style={{
-              left: task.x - 16,
-              top: task.y - 16,
+            style={{ 
+              left: task.x - 16, 
+              top: task.y - 16 
             }}
             title={task.name}
           >
@@ -163,9 +153,9 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
           <div
             key={`body-${index}`}
             className="absolute w-6 h-6 bg-red-600 rounded-full border-2 border-red-400 cursor-pointer hover:scale-110 transition-transform"
-            style={{
-              left: body.position.x - 12,
-              top: body.position.y - 12,
+            style={{ 
+              left: body.position.x - 12, 
+              top: body.position.y - 12 
             }}
             onClick={() => handleReportBody(body)}
             title="Report body"
@@ -175,15 +165,15 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
         ))}
 
         {/* Players */}
-        {players.map((player) => (
+        {players.map(player => (
           <Player
             key={player.id}
             player={player}
             isCurrentPlayer={player.id === currentPlayer.id}
             canKill={
-              currentPlayer.role === "impostor" &&
-              currentPlayer.state === "alive" &&
-              nearbyPlayers.some((p) => p.id === player.id)
+              currentPlayer.role === 'impostor' && 
+              currentPlayer.state === 'alive' &&
+              nearbyPlayers.some(p => p.id === player.id)
             }
             onKill={() => handleKill(player.id)}
           />
@@ -192,15 +182,15 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
         {/* Current player position indicator */}
         <div
           className="absolute w-4 h-4 bg-blue-500 rounded-full border-2 border-white animate-pulse z-10"
-          style={{
-            left: position.x - 8,
-            top: position.y - 8,
+          style={{ 
+            left: position.x - 8, 
+            top: position.y - 8 
           }}
         />
       </div>
 
       {/* Task Panel for Crewmates */}
-      {currentPlayer.role === "crewmate" && (
+      {currentPlayer.role === 'crewmate' && (
         <TaskPanel
           tasks={gameMap}
           currentPosition={position}
@@ -211,13 +201,13 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
       )}
 
       {/* Impostor Actions Panel */}
-      {currentPlayer.role === "impostor" && nearbyPlayers.length > 0 && (
+      {currentPlayer.role === 'impostor' && nearbyPlayers.length > 0 && (
         <div className="absolute top-20 right-4 bg-red-600 p-4 rounded-lg shadow-xl max-w-xs">
           <h3 className="text-white font-bold mb-3 flex items-center">
             🔪 Impostor Actions
           </h3>
           <div className="space-y-2">
-            {nearbyPlayers.map((player) => (
+            {nearbyPlayers.map(player => (
               <button
                 key={player.id}
                 onClick={() => handleKill(player.id)}
@@ -235,10 +225,10 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
         <h4 className="font-bold mb-2">🎮 Controls</h4>
         <div className="text-sm space-y-1">
           <p>WASD or Arrow Keys - Move</p>
-          {currentPlayer.role === "crewmate" && (
+          {currentPlayer.role === 'crewmate' && (
             <p>🟡 Get close to yellow tasks to complete them</p>
           )}
-          {currentPlayer.role === "impostor" && (
+          {currentPlayer.role === 'impostor' && (
             <p>🔪 Get close to players to eliminate them</p>
           )}
           <p>💀 Click dead bodies to report them</p>
@@ -250,7 +240,7 @@ const GameBoard = ({ players, currentPlayer, tasks, onBackToMenu }) => {
         <div className="text-center">
           <div className="text-sm opacity-75">Players Alive</div>
           <div className="text-2xl font-bold">
-            {players.filter((p) => p.state === "alive").length}/{players.length}
+            {players.filter(p => p.state === 'alive').length}/{players.length}
           </div>
         </div>
       </div>

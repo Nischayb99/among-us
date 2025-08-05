@@ -1,6 +1,125 @@
 import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
 
+// Simple Button Component (inline to avoid import issues)
+const Button = ({
+  children,
+  onClick,
+  disabled = false,
+  variant = "primary",
+  className = "",
+  ...props
+}) => {
+  const variants = {
+    primary: "bg-blue-600 hover:bg-blue-700 text-white",
+    success: "bg-green-600 hover:bg-green-700 text-white",
+    danger: "bg-red-600 hover:bg-red-700 text-white",
+    warning: "bg-yellow-600 hover:bg-yellow-700 text-white",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`font-bold py-2 px-4 rounded transition duration-200 focus:outline-none ${
+        disabled ? "opacity-50 cursor-not-allowed" : ""
+      } ${variants[variant] || variants.primary} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+
+// Simple Lobby Component (inline)
+const Lobby = ({
+  roomCode,
+  players,
+  currentPlayer,
+  isHost,
+  onStartGame,
+  onBackToMenu,
+}) => {
+  return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-gray-800 p-8 rounded-lg shadow-xl max-w-4xl w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-white mb-4">Game Lobby</h1>
+          <div className="text-xl text-blue-400 font-mono">
+            Room Code:{" "}
+            <span className="bg-gray-700 px-3 py-1 rounded">{roomCode}</span>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-4">
+              Players ({players.length})
+            </h2>
+            <div className="space-y-2">
+              {players.map((player) => (
+                <div
+                  key={player.id}
+                  className="bg-gray-700 p-3 rounded-lg flex items-center justify-between"
+                >
+                  <span className="text-white font-medium">{player.name}</span>
+                  {player.id === currentPlayer?.id && (
+                    <span className="text-blue-400 text-sm">You</span>
+                  )}
+                  {isHost && player.id === currentPlayer?.id && (
+                    <span className="text-yellow-400 text-xs ml-2">HOST</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-gray-700 rounded-lg p-4">
+              <h3 className="text-white font-semibold mb-3">Game Rules</h3>
+              <ul className="text-gray-300 text-sm space-y-1">
+                <li>• Crewmates: Complete tasks and find impostors</li>
+                <li>• Impostors: Eliminate crewmates without being caught</li>
+                <li>• Use WASD or arrow keys to move</li>
+                <li>• Report dead bodies to call meetings</li>
+                <li>• Vote to eject suspected impostors</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 mt-8">
+          {isHost && (
+            <Button
+              onClick={onStartGame}
+              disabled={players.length < 2}
+              variant="success"
+              className="flex-1"
+            >
+              {players.length >= 2
+                ? "Start Game"
+                : `Need ${2 - players.length} more player${
+                    players.length === 1 ? "" : "s"
+                  }`}
+            </Button>
+          )}
+
+          <Button onClick={onBackToMenu} variant="danger" className="flex-1">
+            Leave Room
+          </Button>
+        </div>
+
+        {!isHost && (
+          <div className="mt-4 text-center text-gray-400">
+            Waiting for host to start the game...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Game Constants
 const GAME_STATES = {
   MENU: "menu",
   LOBBY: "lobby",
@@ -8,6 +127,14 @@ const GAME_STATES = {
   MEETING: "meeting",
   ENDED: "ended",
 };
+
+const TASK_LOCATIONS = [
+  { id: 1, name: "Fix Wiring", x: 150, y: 150 },
+  { id: 2, name: "Empty Trash", x: 650, y: 200 },
+  { id: 3, name: "Fuel Engine", x: 500, y: 450 },
+  { id: 4, name: "Calibrate Distributor", x: 300, y: 400 },
+  { id: 5, name: "Scan Boarding Pass", x: 600, y: 350 },
+];
 
 function App() {
   const [socket, setSocket] = useState(null);
@@ -64,7 +191,6 @@ function App() {
       setGameState(GAME_STATES.LOBBY);
       setError("");
 
-      // Set current player
       const player = players.find((p) => p.id === newSocket.id);
       setCurrentPlayer(player);
     });
@@ -74,13 +200,11 @@ function App() {
       setPlayers(players);
     });
 
-    // Game events
     newSocket.on("game-started", ({ role, players, gameState }) => {
       console.log("🎮 Game started! Role:", role, "Players:", players.length);
       setPlayers(players);
       setGameState(GAME_STATES.PLAYING);
 
-      // Update current player with role
       const player = players.find((p) => p.id === newSocket.id);
       setCurrentPlayer({ ...player, role, tasksCompleted: 0 });
       console.log("Current player:", { ...player, role });
@@ -106,8 +230,6 @@ function App() {
 
     newSocket.on("game-ended", (result) => {
       console.log("🏁 Game ended:", result);
-      setGameState(GAME_STATES.ENDED);
-      // Show win/lose message
       alert(
         `Game Over! ${
           result.winner === "crewmates"
@@ -115,6 +237,7 @@ function App() {
             : "🔪 Impostors Win!"
         }\nReason: ${result.reason}`
       );
+      setGameState(GAME_STATES.MENU);
     });
 
     newSocket.on("error", ({ message }) => {
@@ -164,7 +287,6 @@ function App() {
       if (keys["a"] || keys["arrowleft"]) newX -= speed;
       if (keys["d"] || keys["arrowright"]) newX += speed;
 
-      // Boundary checking
       newX = Math.max(20, Math.min(780, newX));
       newY = Math.max(20, Math.min(580, newY));
 
@@ -175,7 +297,7 @@ function App() {
       }
     };
 
-    const interval = setInterval(movePlayer, 16); // ~60fps
+    const interval = setInterval(movePlayer, 16);
     return () => clearInterval(interval);
   }, [keys, position, socket, gameState, currentPlayer]);
 
@@ -264,13 +386,14 @@ function App() {
               maxLength={20}
             />
 
-            <button
+            <Button
               onClick={handleCreateRoom}
               disabled={!inputName.trim() || !isConnected}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded transition duration-200"
+              variant="success"
+              className="w-full"
             >
               Create Room
-            </button>
+            </Button>
 
             <div className="text-center text-gray-400">or</div>
 
@@ -286,15 +409,16 @@ function App() {
               maxLength={6}
             />
 
-            <button
+            <Button
               onClick={handleJoinRoom}
               disabled={
                 !inputName.trim() || !inputRoomCode.trim() || !isConnected
               }
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded transition duration-200"
+              variant="primary"
+              className="w-full"
             >
               Join Room
-            </button>
+            </Button>
           </div>
 
           {error && (
@@ -316,65 +440,14 @@ function App() {
   // Lobby screen
   if (gameState === GAME_STATES.LOBBY) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="bg-gray-800 p-8 rounded-lg shadow-xl max-w-2xl w-full mx-4">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Game Lobby</h1>
-            <div className="text-xl text-blue-400 font-mono">
-              Room Code:{" "}
-              <span className="bg-gray-700 px-3 py-1 rounded">{roomCode}</span>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-white mb-4">
-              Players ({players.length})
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {players.map((player) => (
-                <div
-                  key={player.id}
-                  className="bg-gray-700 p-3 rounded-lg flex items-center justify-between"
-                >
-                  <span className="text-white font-medium">{player.name}</span>
-                  {socket && player.id === socket.id && (
-                    <span className="text-blue-400 text-sm">You</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            {isHost && (
-              <button
-                onClick={handleStartGame}
-                disabled={players.length < 2}
-                className={`flex-1 font-bold py-3 px-6 rounded transition duration-200 ${
-                  players.length >= 2
-                    ? "bg-green-600 hover:bg-green-700 text-white"
-                    : "bg-gray-600 text-gray-400 cursor-not-allowed"
-                }`}
-              >
-                Start Game {players.length < 2 && "(Need 2+ players)"}
-              </button>
-            )}
-
-            <button
-              onClick={handleBackToMenu}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded transition duration-200"
-            >
-              Leave Room
-            </button>
-          </div>
-
-          {!isHost && (
-            <div className="mt-4 text-center text-gray-400">
-              Waiting for host to start the game...
-            </div>
-          )}
-        </div>
-      </div>
+      <Lobby
+        roomCode={roomCode}
+        players={players}
+        currentPlayer={currentPlayer}
+        isHost={isHost}
+        onStartGame={handleStartGame}
+        onBackToMenu={handleBackToMenu}
+      />
     );
   }
 
@@ -411,36 +484,39 @@ function App() {
             <div className="text-lg font-bold text-green-400">👤 ALIVE</div>
           </div>
 
-          <button
-            onClick={handleBackToMenu}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition duration-200"
-          >
+          <Button onClick={handleBackToMenu} variant="danger">
             Leave Game
-          </button>
+          </Button>
         </div>
 
         {/* Game Board */}
         <div className="relative w-full h-screen bg-gray-700 pt-20">
           {/* Task locations */}
-          {[
-            { id: 1, name: "Fix Wiring", x: 150, y: 150 },
-            { id: 2, name: "Empty Trash", x: 650, y: 200 },
-            { id: 3, name: "Fuel Engine", x: 500, y: 450 },
-            { id: 4, name: "Calibrate Distributor", x: 300, y: 400 },
-            { id: 5, name: "Scan Boarding Pass", x: 600, y: 350 },
-          ].map((task) => (
-            <div
-              key={task.id}
-              className="absolute w-8 h-8 bg-yellow-500 border-2 border-yellow-300 rounded"
-              style={{
-                left: task.x - 16,
-                top: task.y - 16,
-              }}
-              title={task.name}
-            >
-              ⚙️
-            </div>
-          ))}
+          {TASK_LOCATIONS.map((task) => {
+            const distance = Math.sqrt(
+              Math.pow(task.x - position.x, 2) +
+                Math.pow(task.y - position.y, 2)
+            );
+            const canInteract = distance <= 40;
+
+            return (
+              <div
+                key={task.id}
+                className={`absolute w-8 h-8 rounded border-2 transition-all duration-200 ${
+                  canInteract
+                    ? "bg-yellow-400 border-yellow-300 animate-pulse scale-110"
+                    : "bg-gray-500 border-gray-400"
+                }`}
+                style={{
+                  left: task.x - 16,
+                  top: task.y - 16,
+                }}
+                title={task.name}
+              >
+                ⚙️
+              </div>
+            );
+          })}
 
           {/* Players */}
           {players.map((player) => (
@@ -455,11 +531,11 @@ function App() {
               <div
                 className={`w-6 h-6 rounded-full border-2 border-white ${
                   player.state === "dead"
-                    ? "bg-gray-500"
+                    ? "bg-gray-500 opacity-50"
                     : player.role === "impostor"
                     ? "bg-red-500"
                     : "bg-blue-500"
-                } ${player.state === "dead" ? "opacity-50" : ""}`}
+                }`}
               />
               <div className="text-white text-xs mt-1 bg-black bg-opacity-50 px-1 rounded">
                 {player.name}
@@ -479,20 +555,6 @@ function App() {
           />
         </div>
 
-        {/* Controls */}
-        <div className="absolute bottom-4 left-4 bg-gray-900 bg-opacity-90 p-4 rounded-lg text-white">
-          <h4 className="font-bold mb-2">🎮 Controls</h4>
-          <div className="text-sm space-y-1">
-            <p>WASD or Arrow Keys - Move</p>
-            {currentPlayer.role === "crewmate" && (
-              <p>🟡 Complete tasks (yellow markers)</p>
-            )}
-            {currentPlayer.role === "impostor" && (
-              <p>🔪 Get close to players to eliminate</p>
-            )}
-          </div>
-        </div>
-
         {/* Task Panel for Crewmates */}
         {currentPlayer.role === "crewmate" && (
           <div className="absolute top-20 left-4 bg-green-600 p-4 rounded-lg text-white max-w-xs">
@@ -500,13 +562,7 @@ function App() {
               🔧 Tasks ({currentPlayer.tasksCompleted || 0}/5)
             </h3>
             {(() => {
-              const nearbyTask = [
-                { id: 1, name: "Fix Wiring", x: 150, y: 150 },
-                { id: 2, name: "Empty Trash", x: 650, y: 200 },
-                { id: 3, name: "Fuel Engine", x: 500, y: 450 },
-                { id: 4, name: "Calibrate Distributor", x: 300, y: 400 },
-                { id: 5, name: "Scan Boarding Pass", x: 600, y: 350 },
-              ].find((task) => {
+              const nearbyTask = TASK_LOCATIONS.find((task) => {
                 const distance = Math.sqrt(
                   Math.pow(task.x - position.x, 2) +
                     Math.pow(task.y - position.y, 2)
@@ -518,15 +574,16 @@ function App() {
                 return (
                   <div className="bg-green-700 p-3 rounded mb-3">
                     <h4 className="font-semibold mb-2">⚙️ {nearbyTask.name}</h4>
-                    <button
+                    <Button
                       onClick={() => {
                         socket.emit("complete-task");
                         console.log("Task completed!");
                       }}
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-3 rounded transition duration-200"
+                      variant="warning"
+                      className="w-full text-black"
                     >
                       Complete Task
-                    </button>
+                    </Button>
                   </div>
                 );
               } else {
@@ -537,13 +594,6 @@ function App() {
                 );
               }
             })()}
-            <div className="text-xs space-y-1">
-              <div>• Fix Wiring</div>
-              <div>• Empty Trash</div>
-              <div>• Fuel Engine</div>
-              <div>• Calibrate Distributor</div>
-              <div>• Scan Boarding Pass</div>
-            </div>
           </div>
         )}
 
@@ -568,16 +618,17 @@ function App() {
                 return (
                   <div className="space-y-2">
                     {nearbyPlayers.map((player) => (
-                      <button
+                      <Button
                         key={player.id}
                         onClick={() => {
                           socket.emit("kill-player", player.id);
                           console.log("Attempting to kill:", player.name);
                         }}
-                        className="block w-full bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded transition duration-200 font-medium"
+                        variant="danger"
+                        className="w-full"
                       >
                         Kill {player.name}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 );
@@ -589,11 +640,22 @@ function App() {
                 );
               }
             })()}
-            <div className="mt-3 text-xs opacity-75">
-              Get within range of other players to see kill options
-            </div>
           </div>
         )}
+
+        {/* Controls */}
+        <div className="absolute bottom-4 left-4 bg-gray-900 bg-opacity-90 p-4 rounded-lg text-white">
+          <h4 className="font-bold mb-2">🎮 Controls</h4>
+          <div className="text-sm space-y-1">
+            <p>WASD or Arrow Keys - Move</p>
+            {currentPlayer.role === "crewmate" && (
+              <p>🟡 Complete tasks (yellow markers)</p>
+            )}
+            {currentPlayer.role === "impostor" && (
+              <p>🔪 Get close to players to eliminate</p>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
